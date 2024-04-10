@@ -1,5 +1,6 @@
 .Rproj.user
 _targets
+parquet
 .Rhistory
 .Rdata
 .httr-oauth
