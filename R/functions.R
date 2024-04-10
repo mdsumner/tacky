@@ -1,0 +1,69 @@
+
+##' internal function to read a stac query and get all its hrefs (every variable)
+hrefs0 <- function(x) {
+  a <- jsonlite::fromJSON(x)
+  l <- lapply(a$features$assets, \(.x) .x$href)
+  nms <- names(a$features$assets)
+
+  hrefs <- tibble::as_tibble(setNames(l, nms))
+  if(("next" %in% a$links$rel)) {
+    idx <- which("next" == a$links$rel)
+    hrefs <- rbind(hrefs, Recall(a$links$href[idx]))
+  }
+  hrefs
+}
+
+## vectorized hrefs from a stac query
+hrefs <- function(x) {
+  out <- NULL
+  for (x0 in x) out <- rbind(out, hrefs0(x0))
+  out
+}
+
+
+## function to take a single-row of href, this works on red,green,blue,cloud from sentinel-2-c1-l2a
+## returns a table of cell, red, green, blue - we mask cloud to 10 atm
+warpfun <- function(x,  dim = c(1280, 0), ext = NULL, crs = NULL) {
+  if (is.null(crs)) crs <- ""
+  cl_arg <- NULL
+  if (!is.null(dim)) cl_arg <- c(cl_arg, "-ts", dim[1], dim[2])
+  if (!is.null(ext)) cl_arg <- c(cl_arg, "-te", ext[1], ext[3], ext[2], ext[4])
+  ## I don't think we have to deal with bands, we get all or 1
+
+  gdalraster::warp(x, tf <- tempfile(fileext = ".tif", tmpdir = "/vsimem"), t_srs = crs, cl_arg = cl_arg, quiet = TRUE)
+
+  ds <- new(gdalraster::GDALRaster, tf)
+  dat <- gdalraster::read_ds(ds)
+  ds$close()
+  gdalraster::vsi_unlink(tf)
+  dat
+
+}
+
+## function to run the warp function and trim out the result, we only store valid pixels
+## cell is relevant to dim+ext+crs, and used as a grouping for taking median
+sclfun <- function(red, green, blue, cloud,  dim = c(1280, 0), ext = NULL, crs = NULL) {
+
+  check <- gdalraster::buildVRT(visual <- tempfile(fileext = ".vrt", tmpdir = "/vsimem"),
+                                sprintf("/vsicurl/%s", c(red, green, blue, cloud)), cl_arg = "-separate", quiet = TRUE)
+
+
+  vis <- warpfun(visual, dim = dim, ext = ext, crs = crs)
+  mm <- matrix(vis, ncol = 4)
+  bad <- mm[,4] > 10
+  out <- mm[,1:3]
+  if (any(bad)) out[bad,] <- NA
+  keep <- rowSums(out, na.rm = TRUE) > 0
+  tibble::tibble(cell = which(keep),
+                 red = out[keep,1], green = out[keep, 2], blue = out[keep, 3])
+
+}
+
+
+ql <- function(x, dim = NULL) {
+  if (!grepl("/vsicurl", x)) x <- sprintf("/vsicurl/%s", x)
+  info <- vapour::vapour_raster_info(x)
+  dim <- tail(info$overviews, 2)
+  ximage::ximage(d <- gdal_raster_data(x[1], target_dim = dim, bands = 1:info$bands), asp = 1)
+  invisible(d)
+}
