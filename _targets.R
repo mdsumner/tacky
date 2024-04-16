@@ -1,34 +1,10 @@
 # ## Load your packages, e.g. library(targets).
  source("./packages.R")
 #
+options(clustermq.scheduler = "multicore")
 # ## Load your R files
 lapply(list.files("./R", full.names = TRUE), source)
-#
-# ## tar_plan supports drake-style targets and also tar_target()
-# tar_plan(
-#   ex = c(-64, -63.5, -9, -8.5),
-#   srcs = hrefs(stacit(ex, date = "2020-01")),
-#
-#   spec = list(dimension = c(1280, 0), ex = ex, crs = "EPSG:4326"),
-#
-#   ## we need a template, these might be different so we normalize upfront
-#   ref = warpfun(srcs$aot[1], ext = spec$ex, dim = spec$dimension, crs = spec$crs),
-#
-#   #n = nrow(srcs),
-#   #n.cpus = min(c(64, n)),
-#   #cl = makeCluster(n.cpus),
-#   #tst = clusterExport(cl, "warpfun"),
-#   d = parLapply(cl, split(srcs, 1:nrow(srcs))[sample(n)], sclfun, ext = attr(ref, "gis")$bbox[c(1, 3, 2, 4)],
-#                 crs = attr(ref, "gis")$srs, dim attr(ref, "gis")$dim[1:2]),
-#
-#   tar_target(d, transpose(srcs), pattern = map(x))
-#   #tst2 = stopCluster(cl)
-#
-#
-# )
-tar_option_set(
-  controller = crew_controller_local(workers = 64)
-)
+
 
 list(
   tar_target(ex, c(-64, -63.5, -9, -8.5)),
@@ -44,10 +20,20 @@ list(
   tar_target(green, srcs$green),
   tar_target(blue, srcs$blue),
   tar_target(cloud, srcs$cloud),
-
-  tar_target(d, sclfun(red, green, blue, cloud, ext = spec$ex,
-                       crs = spec$crs, dim = spec$dimension[1:2]),
-             pattern = map(red, green, blue, cloud),
-             iteration = "list")
-
+  tar_target(irow, 1:nrow(srcs)),
+  tar_target(path, sprintf("outputs/%06i.parquet", irow)),
+  tar_target(files, sclfun(red, green, blue, cloud, ext = spec$ex,
+                       crs = spec$crs, dim = spec$dimension[1:2], path = path, i = irow), format = "file",
+             pattern = map(red, green, blue, cloud, irow, path)),
+  tar_target(nn, c(min(c(nrow(srcs), parallel::detectCores() %/% 2)))),
+  tar_target(res, calc_med(files, new_cluster(nn)))
 )
+
+
+# list(
+#   tar_target(red, srcs$red),
+#   tar_target(path, unlist(replicate(nrow(srcs), tempfile(fileext = ".parquet")))),
+#   tar_target(files, sclfun(red, path), pattern = map(red, path)),
+#   tar_files(parquet, files)
+#   #tar_target(arrow, arrow::open_dataset(parquet))
+# )

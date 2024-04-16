@@ -42,7 +42,8 @@ warpfun <- function(x,  dim = c(1280, 0), ext = NULL, crs = NULL) {
 
 ## function to run the warp function and trim out the result, we only store valid pixels
 ## cell is relevant to dim+ext+crs, and used as a grouping for taking median
-sclfun <- function(red, green, blue, cloud,  dim = c(1280, 0), ext = NULL, crs = NULL) {
+sclfun <- function(red, green, blue, cloud,  dim = c(1280, 0), ext = NULL, crs = NULL,
+                   path = tempfile(fileext = ".parquet"), i = 1) {
 
   check <- gdalraster::buildVRT(visual <- tempfile(fileext = ".vrt", tmpdir = "/vsimem"),
                                 sprintf("/vsicurl/%s", c(red, green, blue, cloud)), cl_arg = "-separate", quiet = TRUE)
@@ -54,8 +55,9 @@ sclfun <- function(red, green, blue, cloud,  dim = c(1280, 0), ext = NULL, crs =
   out <- mm[,1:3]
   if (any(bad)) out[bad,] <- NA
   keep <- rowSums(out, na.rm = TRUE) > 0
-  tibble::tibble(cell = which(keep),
-                 red = out[keep,1], green = out[keep, 2], blue = out[keep, 3])
+  arrow::write_parquet(tibble::tibble(cell = which(keep),
+                 red = out[keep,1], green = out[keep, 2], blue = out[keep, 3], i = i), path, compression = "uncompressed")
+  path
 
 }
 
@@ -66,4 +68,12 @@ ql <- function(x, dim = NULL) {
   dim <- tail(info$overviews, 2)
   ximage::ximage(d <- gdal_raster_data(x[1], target_dim = dim, bands = 1:info$bands), asp = 1)
   invisible(d)
+}
+
+
+calc_med <- function(files, cl = default_cluster()) {
+    res <- open_dataset(files) %>%    collect() %>%
+      group_by(cell) %>%  partition(cl) %>%
+      summarize(red = median(red), green = median(green), blue = median(blue)) %>% collect()
+
 }

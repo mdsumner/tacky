@@ -6,3 +6,4 @@ parquet
 .httr-oauth
 .DS_Store
 .quarto
+outputs
