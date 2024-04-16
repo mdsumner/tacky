@@ -2,7 +2,6 @@
 
 
 
-system.time({
   library(rstac)
   library(gdalcubes)
 
@@ -46,7 +45,7 @@ v <-  cube_view(srs = "EPSG:4326",  extent = list(t0 = t01[1], t1 = t01[2],
 
 col <- stac_image_collection(items$features)
 
-S2.mask = image_mask("cloud", values=13:100)
+S2.mask <- image_mask("cloud", values=13:100)  ## new c1 cloud masking
 
 cubs <- raster_cube(col, v, mask = S2.mask) %>%
   select_bands(c("red","green","blue")) %>%
@@ -54,4 +53,4 @@ cubs <- raster_cube(col, v, mask = S2.mask) %>%
 
 plot(cubs, rgb = 1:3, zlim = c(0, 8000))
 
-})
+
