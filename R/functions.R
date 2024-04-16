@@ -70,9 +70,23 @@ ql <- function(x, dim = NULL) {
   invisible(d)
 }
 
+clamp <- function(x, rg = c(0, 1)) {x[x < rg[1]] <- rg[1]; x[x > rg[2]] <- rg[2]; x[is.na(x)] <- 0; x}
+
+scale_image <- function(x, spec) {
+  scaled <- tibble::as_tibble(lapply(x[c("red", "green", "blue")], scales::rescale, from = c(0, 8000)))
+  ref <- list()
+  ref[[1]] <- rep(NA_character_, prod(spec$dimension))
+  print(str(ref))
+  ref[[1]][x$cell] <-  rgb(clamp(scaled$red), clamp(scaled$green), clamp(scaled$blue))
+  print(str(ref))
+  attr(ref, "dimension") <- spec$dimension[1:2]
+  attr(ref, "extent") <- spec$ex
+  attr(ref, "crs") <- spec$crs
+  ref
+}
 
 calc_med <- function(files, cl = default_cluster()) {
-    res <- open_dataset(files) %>%    collect() %>%
+    open_dataset(files) %>%    collect() %>%
       group_by(cell) %>%  partition(cl) %>%
       summarize(red = median(red), green = median(green), blue = median(blue)) %>% collect()
 

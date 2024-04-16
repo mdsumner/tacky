@@ -1,7 +1,10 @@
 # ## Load your packages, e.g. library(targets).
  source("./packages.R")
-#
-options(clustermq.scheduler = "multicore")
+
+ tar_option_set(
+   controller = crew_controller_local(workers = 26)
+ )
+#options(clustermq.scheduler = "multicore")
 # ## Load your R files
 lapply(list.files("./R", full.names = TRUE), source)
 
@@ -26,7 +29,8 @@ list(
                        crs = spec$crs, dim = spec$dimension[1:2], path = path, i = irow), format = "file",
              pattern = map(red, green, blue, cloud, irow, path)),
   tar_target(nn, c(min(c(nrow(srcs), parallel::detectCores() %/% 2)))),
-  tar_target(res, calc_med(files, new_cluster(nn)))
+  tar_target(masked, calc_med(files, new_cluster(nn))),
+  tar_target(scaled, scale_image(masked, spec))
 )
 
 
