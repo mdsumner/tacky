@@ -1,6 +1,6 @@
 Package: tacky
 Title: Illustrate Sentinel Imagery via 'targets'
-Version: 0.0.0.9000
+Version: 0.0.1
 Authors@R: 
     person("Michael", "Sumner", , "mdsumner@gmail.com", role = c("aut", "cre"))
 Description: Process Sentinel imagery using 'GDAL' and generic data tools available 
