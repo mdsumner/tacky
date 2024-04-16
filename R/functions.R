@@ -91,3 +91,15 @@ calc_med <- function(files, cl = default_cluster()) {
       summarize(red = median(red), green = median(green), blue = median(blue)) %>% collect()
 
 }
+
+create_figure <- function(x) {
+  ## x is a weird raster format
+  m <- matrix(x[[1]], attr(x, "dimension")[2L], byrow = TRUE)
+  ex <- attr(x, "extent")
+  df <- data.frame(xmin = ex[1], xmax = ex[2], ymin = ex[3], ymax = ex[4])
+  ggplot(df) + geom_rect(aes(xmin = xmin, xmax = xmax,  ymin = ymin, ymax = ymax)) +
+    annotation_raster(m, ex[1], ex[2], ex[3], ex[4]) +
+    #coord_fixed(ratio = 1/cos(mean(ex[3:4]) * pi/180)) +
+    coord_sf(crs = attr(x, "crs"))
+
+}

@@ -1,0 +1,55 @@
+---
+output: github_document
+---
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "man/figures/README-",
+  out.width = "100%"
+)
+```
+
+# tacky
+
+<!-- badges: start -->
+<!-- badges: end -->
+
+The goal of tacky is to illustrate workflows of satellite image processing in R
+using {gdalraster}, {dplyr}, and {targets}.  These workflows are comparable to similar ones
+in using Opendatacube and xarray  in Python, or with {gdalcubes}, {sits}, {rsi} in R. 
+
+This is experimental atm, working side-by-side with the [{geotargets}](https://github.com/njtierney/geotargets) project to convert existing alternative spatial workflows into the very efficient and scaleable check-pointing frameworks of the targetsverse in R. 
+
+## Installation
+
+You can obtain the development version of tacky from [GitHub:mdsumner/tacky](https://github.com/mdsumner/tacky.git). 
+
+This is not an actual R package, it's just a repo to house this illustration for now. 
+
+## Example
+
+This example loads Sentinel imagery from 'sentinel-2-c1-l2a' and plots it: 
+
+```{r example, fig.width = 10, fig.height = 10}
+library(targets)
+tar_make()
+
+tar_read(figure)
+```
+
+A comparable pair of workflows in Python is illustrated here: 
+
+https://discourse.pangeo.io/t/comparing-odc-stac-load-and-stackstac-for-raster-composite-workflow/
+
+We hope to expand the example here into a few more analogous workflows (at the very least with gdalcbues), and maybe build some helpers. 
+
+
+
+## Code of Conduct
+  
+Please note that the tacky project is released with a [Contributor Code of Conduct](https://contributor-covenant.org/version/2/1/CODE_OF_CONDUCT.html). By contributing to this project, you agree to abide by its terms.
+
