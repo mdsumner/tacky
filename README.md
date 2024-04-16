@@ -74,7 +74,7 @@ tar_make()
 #> ✔ skipped target masked
 #> ✔ skipped target scaled
 #> ✔ skipped target figure
-#> ✔ skipped pipeline [0.286 seconds]
+#> ✔ skipped pipeline [0.284 seconds]
 
 tar_read(figure)
 ```
@@ -87,6 +87,12 @@ A comparable pair of workflows in Python is illustrated here:
 
 We hope to expand the example here into a few more analogous workflows
 (at the very least with gdalcbues), and maybe build some helpers.
+
+## Notes
+
+This developed slowly from experiments:
+
+<https://gist.github.com/mdsumner/9b3b4bec40cf7f121db3337a823b413c>
 
 ## Code of Conduct
 
