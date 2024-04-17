@@ -85,13 +85,16 @@ scale_image <- function(x, spec) {
   ref
 }
 
-calc_med <- function(files, cl = default_cluster()) {
-    open_dataset(files) %>%    collect() %>%
+calc_med0 <- function(files, cl = default_cluster()) {
+    arrow::open_dataset(files) %>%    collect() %>%
       group_by(cell) %>%  partition(cl) %>%
       summarize(red = median(red), green = median(green), blue = median(blue)) %>% collect()
 
 }
 
+calc_med <- function(files) {
+  duckdbfs::open_dataset(files) |> group_by(cell) |> summarize(red = median(red), green = median(green), blue = median(green)) |> collect()
+}
 create_figure <- function(x) {
   ## x is a weird raster format
   m <- matrix(x[[1]], attr(x, "dimension")[2L], byrow = TRUE)

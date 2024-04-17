@@ -29,7 +29,8 @@ list(
                        crs = spec$crs, dim = spec$dimension[1:2], path = path, i = irow), format = "file",
              pattern = map(red, green, blue, cloud, irow, path)),
   tar_target(nn, c(min(c(nrow(srcs), parallel::detectCores() %/% 2)))),
-  tar_target(masked, calc_med(files, new_cluster(nn))),
+  #tar_target(masked, calc_med0(files, new_cluster(nn))),
+  tar_target(masked, calc_med(files)),  ## DUCKDBFS
   tar_target(scaled, scale_image(masked, spec)),
   tar_target(figure, create_figure(scaled))
 )
