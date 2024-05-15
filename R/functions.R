@@ -12,7 +12,6 @@ hrefs0 <- function(x) {
   }
   hrefs
 }
-
 ## vectorized hrefs from a stac query
 hrefs <- function(x) {
   out <- NULL
@@ -20,6 +19,21 @@ hrefs <- function(x) {
   out
 }
 
+props0 <- function(x) {
+  a <- jsonlite::fromJSON(x)
+  props <- a$features$properties
+  if ("next" %in% a$links$rel) {
+    idx <- which("next" == a$links$rel)
+    props <- rbind(props, Recall(a$links$href[idx]))
+  }
+  props
+}
+props <- function(x) {
+  out <- NULL
+  out <- NULL
+  for (x0 in x) out <- rbind(out, props0(x0))
+  out
+}
 
 ## function to take a single-row of href, this works on red,green,blue,cloud from sentinel-2-c1-l2a
 ## returns a table of cell, red, green, blue - we mask cloud to 10 atm
@@ -51,40 +65,71 @@ sclfun <- function(red, green, blue, cloud,  dim = c(1280, 0), ext = NULL, crs =
 
   vis <- warpfun(visual, dim = dim, ext = ext, crs = crs)
   mm <- matrix(vis, ncol = 4)
-  bad <- mm[,4] > 10
+  bad <- mm[,4] > 0
   out <- mm[,1:3]
-  if (any(bad)) out[bad,] <- NA
+
+  chk <- !all(is.na(bad)) && any(bad)
+  if (!is.na(chk) && chk) out[bad,] <- NA
   keep <- rowSums(out, na.rm = TRUE) > 0
+
   arrow::write_parquet(tibble::tibble(cell = which(keep),
                  red = out[keep,1], green = out[keep, 2], blue = out[keep, 3], i = i), path, compression = "uncompressed")
   path
 
 }
 
-
 ql <- function(x, dim = NULL) {
-  if (!grepl("/vsicurl", x)) x <- sprintf("/vsicurl/%s", x)
+  x <- x[1]
+  if (!grepl("<VRT", x) && grepl("^http", x)) x <- sprintf("/vsicurl/%s", x)
   info <- vapour::vapour_raster_info(x)
   dim <- tail(info$overviews, 2)
-  ximage::ximage(d <- gdal_raster_data(x[1], target_dim = dim, bands = 1:info$bands), asp = 1)
+  if (is.null(dim)) dim <- c(1024, 0)
+  d <- gdal_raster_data(x[1], target_dim = dim, bands = 1:info$bands)
+  dplot <- d
+  if (info$bands > 3) {
+    dplot <- d[1:3]
+    attributes(dplot) <- attributes(d)
+  }
+  ximage::ximage(dplot, asp = 1)
+  invisible(d)
+}
+qlm <- function(x, dim = NULL) {
+  op <- par(mfrow = n2mfrow(length(x)))
+  out <- vector("list", length(x))
+  for (i in seq_along(x)) {
+    out[[i]] <- ql(x[i])
+    title(i)
+  }
+  par(op)
   invisible(d)
 }
 
 clamp <- function(x, rg = c(0, 1)) {x[x < rg[1]] <- rg[1]; x[x > rg[2]] <- rg[2]; x[is.na(x)] <- 0; x}
 
 scale_image <- function(x, spec) {
-  scaled <- tibble::as_tibble(lapply(x[c("red", "green", "blue")], scales::rescale, from = c(0, 8000)))
-  ref <- list()
-  ref[[1]] <- rep(NA_character_, prod(spec$dimension))
-  print(str(ref))
+  scaled <- tibble::as_tibble(lapply(x[c("red", "green", "blue")], scales::rescale, from = c(0, 3000)))
+
+  ref <- list(rep(NA_character_, prod(spec$dimension)))
+ # print(str(ref))
   ref[[1]][x$cell] <-  rgb(clamp(scaled$red), clamp(scaled$green), clamp(scaled$blue))
-  print(str(ref))
+ # print(str(ref))
   attr(ref, "dimension") <- spec$dimension[1:2]
   attr(ref, "extent") <- spec$ex
   attr(ref, "crs") <- spec$crs
+  attr(ref, "projection") <- spec$crs
   ref
 }
 
+create_rast <- function(x) {
+  ex <- attr(x, "extent")
+  terra::rast(xmin  = ex[1], xmax = ex[2], ymin = ex[3], ymax = ex[4], vals = t(col2rgb(x[[1]])), nlyrs = 3,
+              ncols = attr(x, "dimension")[1], nrows = attr(x, "dimension")[2],
+              crs = attr(x, "crs"))
+}
+write_rast <- function(x) {
+  terra::writeRaster(x, "best.tif")
+  "best.tif"
+}
 calc_med0 <- function(files, cl = default_cluster()) {
     arrow::open_dataset(files) %>%    collect() %>%
       group_by(cell) %>%  partition(cl) %>%
@@ -93,7 +138,9 @@ calc_med0 <- function(files, cl = default_cluster()) {
 }
 
 calc_med <- function(files) {
-  duckdbfs::open_dataset(files) |> group_by(cell) |> summarize(red = median(red), green = median(green), blue = median(green)) |> collect()
+  duckdbfs::open_dataset(files) |> group_by(cell) |> summarize(red = median(red, na.rm = TRUE),
+                                                             green = median(green, na.rm = TRUE),
+                                                              blue = median(blue, na.rm = TRUE)) |> collect()
 }
 create_figure <- function(x) {
   ## x is a weird raster format
@@ -105,4 +152,9 @@ create_figure <- function(x) {
     #coord_fixed(ratio = 1/cos(mean(ex[3:4]) * pi/180)) +
     coord_sf(crs = attr(x, "crs"))
 
+}
+
+
+date_from_url <- function(x) {
+  as.POSIXct(stringr::str_extract(dirname(x), "[0-9]{8}T[0-9]{6}"), "%Y%m%dT%H%M%S", tz = "UTC")
 }
