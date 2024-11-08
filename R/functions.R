@@ -6,6 +6,7 @@ hrefs0 <- function(x) {
   nms <- names(a$features$assets)
 
   hrefs <- tibble::as_tibble(setNames(l, nms))
+  hrefs$bbox <- a$features$bbox
   if(("next" %in% a$links$rel)) {
     idx <- which("next" == a$links$rel)
     hrefs <- rbind(hrefs, Recall(a$links$href[idx]))
